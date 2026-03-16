@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Asignación de Medicamentos - Gamma Laboratories</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="usuarios.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.17.4/xlsx.full.min.js"></script>
+</head>
+<body>
+    <div class="container">
+        <!-- Logo -->
+        <div class="logo-container">
+            <img src="logo-gamma.jpg" alt="Gamma Laboratories" class="logo">
+        </div>
+
+        <!-- Sistema de Usuarios -->
+        <div id="user-system">
+            <h1>Sistema de Usuarios</h1>
+            
+            <!-- Registro -->
+            <div id="registro">
+                <h2>Registro</h2>
+                <label for="reg-username">Usuario:</label>
+                <input type="text" id="reg-username" placeholder="Ingrese su usuario">
+                
+                <label for="reg-password">Contraseña:</label>
+                <div class="password-container">
+                    <input type="password" id="reg-password" placeholder="Ingrese su contraseña">
+                    <button type="button" class="toggle-password" onclick="togglePassword('reg-password', this)">👁️</button>
+                </div>
+                
+                <button onclick="registerUser()">Registrar</button>
+            </div>
+
+            <!-- Inicio de Sesión -->
+            <div id="login">
+                <h2>Inicio de Sesión</h2>
+                <label for="login-username">Usuario:</label>
+                <input type="text" id="login-username" placeholder="Ingrese su usuario">
+                
+                <label for="login-password">Contraseña:</label>
+                <div class="password-container">
+                    <input type="password" id="login-password" placeholder="Ingrese su contraseña">
+                    <button type="button" class="toggle-password" onclick="togglePassword('login-password', this)">👁️</button>
+                </div>
+                
+                <button onclick="loginUser()">Iniciar Sesión</button>
+                <button onclick="forgotPassword()" class="btn-secondary">Olvidé mi contraseña</button>
+            </div>
+        </div>
+
+        <!-- Aplicación Principal -->
+        <div id="app" style="display: none;">
+            <button class="logout-button" onclick="logoutUser()">Cerrar sesión</button>
+            
+            <h1>Asignación de Medicamentos</h1>
+            
+            <!-- Paso 1: Buscar Médico -->
+            <div id="step-1">
+                <h2>Buscar Médico</h2>
+                <label for="jvpm">JVPM:</label>
+                <input type="text" id="jvpm" placeholder="Ingrese el JVPM del médico">
+                <button id="buscarMedico">Buscar Médico</button>
+                <div id="nombreMedico" class="medico-info"></div>
+                
+                <label for="dia">Día:</label>
+                <select id="dia">
+                    <option value="">Seleccione el día</option>
+                    <option value="1">1</option>
+                    <option value="2">2</option>
+                    <option value="3">3</option>
+                    <option value="4">4</option>
+                    <option value="5">5</option>
+                </select>
+                
+                <label for="semana">Semana:</label>
+                <select id="semana">
+                    <option value="">Seleccione la semana</option>
+                    <option value="1">1</option>
+                    <option value="2">2</option>
+                    <option value="3">3</option>
+                    <option value="4">4</option>
+                </select>
+                
+                <button id="siguiente">Siguiente</button>
+            </div>
+
+            <!-- Paso 2: Seleccionar Medicamentos (3 CATEGORÍAS) -->
+            <div id="step-2" style="display: none;">
+                <h2>Seleccione Medicamentos (Máximo 8)</h2>
+                <div id="datosMedico" class="datos-medico"></div>
+                
+                <!-- Contador total -->
+                <div class="contador-total">
+                    <span>Total Seleccionados: <strong id="totalSeleccionados">0</strong>/8</span>
+                </div>
+                
+                <!-- 3 Columnas de Categorías -->
+                <div class="categorias-container">
+                    <!-- Línea Gamma -->
+                    <div class="categoria-columna">
+                        <h3 class="categoria-titulo gamma">
+                            Línea Gamma <span class="contador-linea" id="contadorGamma">0</span>
+                        </h3>
+                        <select id="listaGamma" size="10" class="lista-medicamentos"></select>
+                        <button onclick="agregarMedicamento('gamma')" class="btn-agregar">Agregar →</button>
+                    </div>
+                    
+                    <!-- Línea Gineco -->
+                    <div class="categoria-columna">
+                        <h3 class="categoria-titulo gineco">
+                            Línea Gineco <span class="contador-linea" id="contadorGineco">0</span>
+                        </h3>
+                        <select id="listaGineco" size="10" class="lista-medicamentos"></select>
+                        <button onclick="agregarMedicamento('gineco')" class="btn-agregar">Agregar →</button>
+                    </div>
+                    
+                    <!-- Línea Dermoestético -->
+                    <div class="categoria-columna">
+                        <h3 class="categoria-titulo dermo">
+                            Línea Dermo <span class="contador-linea" id="contadorDermo">0</span>
+                        </h3>
+                        <select id="listaDermo" size="10" class="lista-medicamentos"></select>
+                        <button onclick="agregarMedicamento('dermo')" class="btn-agregar">Agregar →</button>
+                    </div>
+                </div>
+                
+                <!-- Medicamentos Seleccionados -->
+                <div class="seleccionados-container">
+                    <h3>Medicamentos Seleccionados:</h3>
+                    <select id="listaSeleccionados" size="10" class="lista-seleccionados"></select>
+                    <button onclick="regresarMedicamento()" class="btn-regresar">← Regresar</button>
+                </div>
+                
+                <div class="botones-navegacion">
+                    <button onclick="document.getElementById('step-2').style.display='none'; document.getElementById('step-1').style.display='block'" class="btn-secondary">← Atrás</button>
+                    <button id="siguienteCantidad" style="display: none;" class="btn-primary">Siguiente →</button>
+                </div>
+            </div>
+
+            <!-- Paso 3: Asignar Cantidades -->
+            <div id="step-3" style="display: none;">
+                <h2>Asignar Cantidades</h2>
+                <div id="cantidades"></div>
+                <div class="botones-navegacion">
+                    <button onclick="document.getElementById('step-3').style.display='none'; document.getElementById('step-2').style.display='block'" class="btn-secondary">← Atrás</button>
+                    <button id="guardar" class="btn-primary">Guardar</button>
+                </div>
+            </div>
+
+            <!-- Tabla de Datos Guardados -->
+            <div id="tablaDatos" style="display: none;">
+                <h2>Datos Guardados</h2>
+                <table id="tablaResultados">
+                    <tr>
+                        <th>Médico</th>
+                        <th>JVPM</th>
+                        <th>Código</th>
+                        <th>Medicamento</th>
+                        <th>Cant.</th>
+                        <th>Día</th>
+                        <th>Semana</th>
+                        <th>Línea</th>
+                    </tr>
+                </table>
+                <div class="button-group">
+                    <button id="exportar">📊 Exportar Excel</button>
+                    <button id="borrarDatos" class="btn-danger">🗑️ Borrar Datos</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="usuarios.js"></script>
+    <script src="script.js"></script>
+</body>
+</html>
