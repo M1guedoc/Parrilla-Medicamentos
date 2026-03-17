@@ -5,12 +5,10 @@ document.addEventListener("DOMContentLoaded", function () {
     const activeUser = localStorage.getItem("activeUser");
 
     if (activeUser) {
-        // Mostrar aplicación principal y ocultar sistema de usuarios
         app.style.display = "block";
         userSystem.style.display = "none";
         console.log(`Usuario activo: ${activeUser}`);
     } else {
-        // Mostrar sistema de usuarios y ocultar aplicación principal
         app.style.display = "none";
         userSystem.style.display = "block";
         console.log("No hay usuario activo.");
@@ -51,13 +49,10 @@ function loginUser() {
     if (storedPassword && storedPassword === password) {
         alert("Inicio de sesión exitoso.");
         localStorage.setItem("activeUser", username);
-
-        // Cambiar vista a la aplicación principal
+        datosGuardados = [];
+        cargarDatosDelUsuario();
         document.getElementById("app").style.display = "block";
         document.getElementById("user-system").style.display = "none";
-
-        // Cargar datos del usuario
-        cargarDatosDelUsuario();
     } else {
         alert("Usuario o contraseña incorrectos.");
     }
@@ -67,7 +62,7 @@ function loginUser() {
 function logoutUser() {
     localStorage.removeItem("activeUser");
     alert("Has cerrado sesión.");
-    location.reload(); // Recargar la página
+    location.reload();
 }
 
 // Función para "Olvidé mi contraseña"
@@ -79,7 +74,6 @@ function forgotPassword() {
     }
 
     const storedPassword = localStorage.getItem(username);
-
     if (storedPassword) {
         alert(`Su contraseña es: ${storedPassword}`);
     } else {
@@ -92,8 +86,7 @@ function togglePassword(inputId, toggleButton) {
     const passwordField = document.getElementById(inputId);
     const type = passwordField.getAttribute("type") === "password" ? "text" : "password";
     passwordField.setAttribute("type", type);
-    // Cambiar texto del botón
-    toggleButton.textContent = type === "password" ? "👁️ Mostrar/Ocultar" : "👁️ Ocultar";
+    toggleButton.textContent = type === "password" ? "👁️" : "👁️‍🗨️";
 }
 
 // Cargar datos específicos del usuario
@@ -104,16 +97,10 @@ function cargarDatosDelUsuario() {
         return;
     }
 
-    // Limpiar datos antiguos
     datosGuardados = [];
-
-    // Cargar los datos específicos de cada usuario desde localStorage
     const storedData = localStorage.getItem(`tablaDatos_${activeUser}`);
     if (storedData) {
         datosGuardados = JSON.parse(storedData);
-        actualizarTabla();
-    } else {
-        datosGuardados = [];
         actualizarTabla();
     }
 }
@@ -122,9 +109,8 @@ function cargarDatosDelUsuario() {
 function guardarDatosDelUsuario() {
     const activeUser = localStorage.getItem("activeUser");
     if (!activeUser) {
-        console.error("No hay usuario activo. No se pueden guardar los datos.");
+        console.error("No hay usuario activo.");
         return;
     }
-    // Guardar los datos del usuario con el nombre de usuario único
     localStorage.setItem(`tablaDatos_${activeUser}`, JSON.stringify(datosGuardados));
 }

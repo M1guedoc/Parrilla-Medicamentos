@@ -10,7 +10,17 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.17.4/xlsx.full.min.js"></script>
 </head>
 <body>
-    <div class="container">
+    <!-- Pantalla de Carga -->
+    <div id="loading-screen" class="loading-screen">
+        <div class="loading-content">
+            <img src="logo-gamma.jpg" alt="Gamma Laboratories" class="loading-logo">
+            <div class="loading-spinner"></div>
+            <p class="loading-text">Cargando datos...</p>
+            <p class="loading-subtext">Por favor espere un momento</p>
+        </div>
+    </div>
+
+    <div class="container" id="main-container" style="display: none;">
         <!-- Logo -->
         <div class="logo-container">
             <img src="logo-gamma.jpg" alt="Gamma Laboratories" class="logo">
@@ -20,7 +30,6 @@
         <div id="user-system">
             <h1>Sistema de Usuarios</h1>
             
-            <!-- Registro -->
             <div id="registro">
                 <h2>Registro</h2>
                 <label for="reg-username">Usuario:</label>
@@ -35,7 +44,6 @@
                 <button onclick="registerUser()">Registrar</button>
             </div>
 
-            <!-- Inicio de Sesión -->
             <div id="login">
                 <h2>Inicio de Sesión</h2>
                 <label for="login-username">Usuario:</label>
@@ -93,14 +101,37 @@
                 <h2>Seleccione Medicamentos (Máximo 8)</h2>
                 <div id="datosMedico" class="datos-medico"></div>
                 
-                <!-- Contador total -->
+                <!-- Panel de Prescripción (VISIBLE EN STEP 2) -->
+                <div id="panelPrescripcionStep2" class="panel-prescripcion" style="display: none;">
+                    <h3>📊 Historial de Prescripción</h3>
+                    <div class="prescripcion-stats">
+                        <div class="stat-card">
+                            <span class="stat-label">Total Recetas</span>
+                            <span class="stat-value" id="totalRecetasStep2">0</span>
+                        </div>
+                        <div class="stat-card">
+                            <span class="stat-label">Medicamentos</span>
+                            <span class="stat-value" id="totalMedicamentosStep2">0</span>
+                        </div>
+                    </div>
+                    <h4>TOP 15 Medicamentos Más Recetados</h4>
+                    <div class="tabla-scroll-container">
+                        <table id="tablaTopMedicamentosStep2">
+                            <tr>
+                                <th>Medicamento</th>
+                                <th>Recetas</th>
+                                <th>%</th>
+                            </tr>
+                        </table>
+                    </div>
+                    <div id="sugerenciaGammaStep2" class="sugerencia-gamma"></div>
+                </div>
+                
                 <div class="contador-total">
                     <span>Total Seleccionados: <strong id="totalSeleccionados">0</strong>/8</span>
                 </div>
                 
-                <!-- 3 Columnas de Categorías -->
                 <div class="categorias-container">
-                    <!-- Línea Gamma -->
                     <div class="categoria-columna">
                         <h3 class="categoria-titulo gamma">
                             Línea Gamma <span class="contador-linea" id="contadorGamma">0</span>
@@ -109,7 +140,6 @@
                         <button onclick="agregarMedicamento('gamma')" class="btn-agregar">Agregar →</button>
                     </div>
                     
-                    <!-- Línea Gineco -->
                     <div class="categoria-columna">
                         <h3 class="categoria-titulo gineco">
                             Línea Gineco <span class="contador-linea" id="contadorGineco">0</span>
@@ -118,7 +148,6 @@
                         <button onclick="agregarMedicamento('gineco')" class="btn-agregar">Agregar →</button>
                     </div>
                     
-                    <!-- Línea Dermoestético -->
                     <div class="categoria-columna">
                         <h3 class="categoria-titulo dermo">
                             Línea Dermo <span class="contador-linea" id="contadorDermo">0</span>
@@ -128,7 +157,6 @@
                     </div>
                 </div>
                 
-                <!-- Medicamentos Seleccionados -->
                 <div class="seleccionados-container">
                     <h3>Medicamentos Seleccionados:</h3>
                     <select id="listaSeleccionados" size="10" class="lista-seleccionados"></select>
@@ -136,7 +164,7 @@
                 </div>
                 
                 <div class="botones-navegacion">
-                    <button onclick="document.getElementById('step-2').style.display='none'; document.getElementById('step-1').style.display='block'" class="btn-secondary">← Atrás</button>
+                    <button onclick="regresarPaso1()" class="btn-secondary">← Atrás</button>
                     <button id="siguienteCantidad" style="display: none;" class="btn-primary">Siguiente →</button>
                 </div>
             </div>
@@ -146,7 +174,7 @@
                 <h2>Asignar Cantidades</h2>
                 <div id="cantidades"></div>
                 <div class="botones-navegacion">
-                    <button onclick="document.getElementById('step-3').style.display='none'; document.getElementById('step-2').style.display='block'" class="btn-secondary">← Atrás</button>
+                    <button onclick="regresarPaso2()" class="btn-secondary">← Atrás</button>
                     <button id="guardar" class="btn-primary">Guardar</button>
                 </div>
             </div>

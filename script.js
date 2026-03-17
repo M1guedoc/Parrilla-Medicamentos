@@ -6,17 +6,28 @@ let datosGuardados = [];
 let medicamentosGamma = [];
 let medicamentosGineco = [];
 let medicamentosDermo = [];
+let prescripciones = [];
+let prescripcionPorMedico = {};
+let datosCargados = false;
+let jvpmActual = '';
+let nombreMedicoActual = '';
+
+// Mostrar pantalla de carga
+document.addEventListener("DOMContentLoaded", function () {
+    console.log("Iniciando carga de datos...");
+});
 
 // Cargar datos desde CSV
 Papa.parse("MEDICOS_NEW.csv", {
     download: true,
     header: true,
     complete: function (results) {
-        medicos = results.data.filter(m => m.Colegiado && m.Colegiado.trim() !== "");
-        console.log("Médicos cargados:", medicos.length);
+        medicos = results.data.filter(m => m.Colegiado && m.Colegiado.toString().trim() !== "");
+        console.log("✅ Médicos cargados:", medicos.length);
+        verificarCargaCompleta();
     },
     error: function (error) {
-        console.error("Error al cargar médicos:", error);
+        console.error("❌ Error al cargar médicos:", error);
     }
 });
 
@@ -25,19 +36,112 @@ Papa.parse("MUESTRA_MEDICA_NEW.csv", {
     header: true,
     complete: function (results) {
         medicamentos = results.data.filter(m => m.ID && m.ID.trim() !== "");
-        console.log("Medicamentos cargados:", medicamentos.length);
+        console.log("✅ Medicamentos cargados:", medicamentos.length);
         categorizarMedicamentos();
+        verificarCargaCompleta();
     },
     error: function (error) {
-        console.error("Error al cargar medicamentos:", error);
+        console.error("❌ Error al cargar medicamentos:", error);
     }
 });
 
-// ⚠️ CATEGORIZACIÓN POR FILAS DEL CSV (AJUSTADO)
-// Fila 1 = Encabezado (no cuenta en el array después de filter)
-// Línea Gamma: Filas 1-42 (índices 0-41) = 42 medicamentos ✅
-// Línea Gineco: Filas 43-57 (índices 42-56) = 15 medicamentos ✅
-// Línea Dermoestético: Filas 58-115 (índices 57-114) = 58 medicamentos ✅
+// Cargar Excel de Prescripciones
+function cargarPrescripciones() {
+    fetch('Prescripciones.xls')
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            return response.arrayBuffer();
+        })
+        .then(data => {
+            const workbook = XLSX.read(data, { type: 'array' });
+            const sheetName = workbook.SheetNames[0];
+            const worksheet = workbook.Sheets[sheetName];
+            const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+            
+            procesarPrescripciones(jsonData);
+            console.log("✅ Prescripciones cargadas");
+            verificarCargaCompleta();
+        })
+        .catch(error => {
+            console.warn("⚠️ No se pudo cargar el archivo de prescripciones:", error.message);
+            console.log("El sistema funcionará sin historial de prescripciones");
+            verificarCargaCompleta();
+        });
+}
+
+// Ejecutar carga de prescripciones
+cargarPrescripciones();
+
+// Verificar si todos los datos cargaron
+function verificarCargaCompleta() {
+    if (medicos.length > 0 && medicamentos.length > 0 && !datosCargados) {
+        datosCargados = true;
+        
+        // Ocultar pantalla de carga
+        document.getElementById("loading-screen").style.display = "none";
+        document.getElementById("main-container").style.display = "block";
+        
+        console.log("✅ Todos los datos cargados correctamente");
+        
+        // Verificar sesión activa
+        const activeUser = localStorage.getItem("activeUser");
+        if (activeUser) {
+            document.getElementById("app").style.display = "block";
+            document.getElementById("user-system").style.display = "none";
+            cargarDatosDelUsuario();
+        } else {
+            document.getElementById("app").style.display = "none";
+            document.getElementById("user-system").style.display = "block";
+        }
+    }
+}
+
+// Procesar datos de prescripciones
+function procesarPrescripciones(data) {
+    prescripciones = [];
+    prescripcionPorMedico = {};
+    
+    // Columna A=0 (Nombre), B=1 (JVPM), K=10 (Medicamento), W=22 (Recetas)
+    for (let i = 1; i < data.length; i++) {
+        const row = data[i];
+        if (!row || !row[1]) continue;
+        
+        const jvpm = String(row[1]).trim();
+        const nombreMedico = row[0] || '';
+        const medicamento = row[10] || '';
+        const recetas = parseInt(row[22]) || 0;
+        
+        if (!jvpm || !medicamento) continue;
+        
+        prescripciones.push({
+            jvpm,
+            nombreMedico,
+            medicamento,
+            recetas
+        });
+        
+        if (!prescripcionPorMedico[jvpm]) {
+            prescripcionPorMedico[jvpm] = {
+                nombre: nombreMedico,
+                medicamentos: {},
+                totalRecetas: 0
+            };
+        }
+        
+        if (medicamento && recetas > 0) {
+            prescripcionPorMedico[jvpm].medicamentos[medicamento] = 
+                (prescripcionPorMedico[jvpm].medicamentos[medicamento] || 0) + recetas;
+            prescripcionPorMedico[jvpm].totalRecetas += recetas;
+        }
+    }
+    
+    console.log("📊 Prescripciones procesadas:", prescripciones.length);
+    console.log("👨‍⚕️ Médicos con prescripción:", Object.keys(prescripcionPorMedico).length);
+}
+
+// Categorizar medicamentos por filas del CSV
 function categorizarMedicamentos() {
     medicamentosGamma = [];
     medicamentosGineco = [];
@@ -45,13 +149,10 @@ function categorizarMedicamentos() {
     
     medicamentos.forEach((med, index) => {
         if (index >= 0 && index <= 41) {
-            // Línea Gamma: índices 0-41 (Filas 1-42 del CSV) ✅ CORREGIDO
             medicamentosGamma.push({...med, linea: "Gamma"});
         } else if (index >= 42 && index <= 56) {
-            // Línea Gineco: índices 42-56 (Filas 43-57 del CSV)
             medicamentosGineco.push({...med, linea: "Gineco"});
         } else if (index >= 57 && index <= 114) {
-            // Línea Dermoestético: índices 57-114 (Filas 58-115 del CSV)
             medicamentosDermo.push({...med, linea: "Dermoestético"});
         }
     });
@@ -61,26 +162,9 @@ function categorizarMedicamentos() {
     console.log("Dermoestético:", medicamentosDermo.length);
 }
 
-// Cargar datos guardados desde localStorage al iniciar
-document.addEventListener("DOMContentLoaded", function () {
-    const activeUser = localStorage.getItem("activeUser");
-    if (activeUser) {
-        document.getElementById("app").style.display = "block";
-        document.getElementById("user-system").style.display = "none";
-        cargarDatosDelUsuario();
-    } else {
-        document.getElementById("app").style.display = "none";
-        document.getElementById("user-system").style.display = "block";
-    }
-});
-
-// Cargar datos específicos del usuario
 function cargarDatosDelUsuario() {
     const activeUser = localStorage.getItem("activeUser");
-    if (!activeUser) {
-        console.warn("No hay usuario activo.");
-        return;
-    }
+    if (!activeUser) return;
     
     datosGuardados = [];
     const storedData = localStorage.getItem(`tablaDatos_${activeUser}`);
@@ -90,17 +174,12 @@ function cargarDatosDelUsuario() {
     }
 }
 
-// Guardar datos específicos del usuario
 function guardarDatosDelUsuario() {
     const activeUser = localStorage.getItem("activeUser");
-    if (!activeUser) {
-        console.error("No hay usuario activo.");
-        return;
-    }
+    if (!activeUser) return;
     localStorage.setItem(`tablaDatos_${activeUser}`, JSON.stringify(datosGuardados));
 }
 
-// Función para registrar usuario
 function registerUser() {
     const username = document.getElementById("reg-username").value.trim();
     const password = document.getElementById("reg-password").value.trim();
@@ -119,7 +198,6 @@ function registerUser() {
     alert("Usuario registrado exitosamente.");
 }
 
-// Función para iniciar sesión
 function loginUser() {
     const username = document.getElementById("login-username").value.trim();
     const password = document.getElementById("login-password").value.trim();
@@ -143,14 +221,12 @@ function loginUser() {
     }
 }
 
-// Función para cerrar sesión
 function logoutUser() {
     localStorage.removeItem("activeUser");
     alert("Has cerrado sesión.");
     location.reload();
 }
 
-// Función para "Olvidé mi contraseña"
 function forgotPassword() {
     const username = document.getElementById("login-username").value.trim();
     if (!username) {
@@ -166,35 +242,106 @@ function forgotPassword() {
     }
 }
 
-// Función para mostrar/ocultar contraseña
 function togglePassword(inputId, toggleButton) {
     const passwordField = document.getElementById(inputId);
     const type = passwordField.getAttribute("type") === "password" ? "text" : "password";
     passwordField.setAttribute("type", type);
-    toggleButton.textContent = type === "password" ? "👁️ Mostrar/Ocultar" : "👁️ Ocultar";
+    toggleButton.textContent = type === "password" ? "👁️" : "👁️‍🗨️";
 }
 
-// Función para buscar médico
+// Buscar médico y mostrar prescripción
 document.getElementById("buscarMedico").addEventListener("click", function () {
     const jvpm = document.getElementById("jvpm").value.trim();
-    const medico = medicos.find((m) => m.Colegiado === jvpm);
+    const medico = medicos.find((m) => m.Colegiado == jvpm);
     const nombreMedicoElement = document.getElementById("nombreMedico");
     
     if (medico) {
-        nombreMedicoElement.innerText = `Nombre: ${medico.NombreLargo}`;
+        nombreMedicoElement.innerText = `✅ Nombre: ${medico.NombreLargo}`;
         nombreMedicoElement.className = "medico-info encontrado";
+        
+        // Guardar datos del médico actual
+        jvpmActual = jvpm;
+        nombreMedicoActual = medico.NombreLargo;
+        
+        // Mostrar prescripción en Step 1
+        mostrarPrescripcion(jvpm, medico.NombreLargo, 'step1');
     } else {
-        nombreMedicoElement.innerText = "Médico no encontrado";
+        nombreMedicoElement.innerText = "❌ Médico no encontrado";
         nombreMedicoElement.className = "medico-info no-encontrado";
+        jvpmActual = '';
+        nombreMedicoActual = '';
     }
 });
 
-// Pasar al siguiente paso
+// Mostrar datos de prescripción (TOP 15)
+function mostrarPrescripcion(jvpm, nombreMedico, step) {
+    const datos = prescripcionPorMedico[jvpm];
+    
+    // Determinar qué panel actualizar
+    const panelId = step === 'step1' ? 'panelPrescripcion' : 'panelPrescripcionStep2';
+    const panel = document.getElementById(panelId);
+    
+    if (!panel) return;
+    
+    if (!datos || datos.totalRecetas === 0) {
+        panel.style.display = "none";
+        return;
+    }
+    
+    panel.style.display = "block";
+    
+    // Actualizar estadísticas según el step
+    const totalRecetasId = step === 'step1' ? 'totalRecetas' : 'totalRecetasStep2';
+    const totalMedicamentosId = step === 'step1' ? 'totalMedicamentos' : 'totalMedicamentosStep2';
+    const tablaTopId = step === 'step1' ? 'tablaTopMedicamentos' : 'tablaTopMedicamentosStep2';
+    const sugerenciaId = step === 'step1' ? 'sugerenciaGamma' : 'sugerenciaGammaStep2';
+    
+    document.getElementById(totalRecetasId).textContent = datos.totalRecetas.toLocaleString();
+    document.getElementById(totalMedicamentosId).textContent = Object.keys(datos.medicamentos).length;
+    
+    // TOP 15 medicamentos
+    const topMedicamentos = Object.entries(datos.medicamentos)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 15);
+    
+    const tablaTop = document.getElementById(tablaTopId);
+    tablaTop.innerHTML = `<tr><th>Medicamento</th><th>Recetas</th><th>%</th></tr>`;
+    
+    topMedicamentos.forEach(([med, recetas]) => {
+        const porcentaje = ((recetas / datos.totalRecetas) * 100).toFixed(1);
+        const tr = document.createElement("tr");
+        tr.innerHTML = `<td>${med}</td><td>${recetas.toLocaleString()}</td><td>${porcentaje}%</td>`;
+        tablaTop.appendChild(tr);
+    });
+    
+    // Sugerencia Gamma
+    const sugerencia = document.getElementById(sugerenciaId);
+    const gammaMedicamentos = topMedicamentos.filter(([med]) => 
+        medicamentosGamma.some(m => m.DESCRIPCION.toUpperCase().includes(med.toUpperCase().substring(0, 5)))
+    );
+    
+    if (gammaMedicamentos.length > 0) {
+        sugerencia.innerHTML = `
+            <div class="sugerencia-box">
+                <strong>💡 Sugerencia:</strong> Este médico prescribe frecuentemente productos Gamma.
+                <br>TOP: ${gammaMedicamentos.slice(0, 3).map(([med]) => med).join(', ')}
+            </div>
+        `;
+    } else {
+        sugerencia.innerHTML = `
+            <div class="sugerencia-box info">
+                <strong>ℹ️ Info:</strong> No hay coincidencias directas con línea Gamma en su historial.
+            </div>
+        `;
+    }
+}
+
+// Pasar al paso 2
 document.getElementById("siguiente").addEventListener("click", function () {
     const jvpm = document.getElementById("jvpm").value.trim();
     const dia = document.getElementById("dia").value;
     const semana = document.getElementById("semana").value;
-    const medico = medicos.find((m) => m.Colegiado === jvpm);
+    const medico = medicos.find((m) => m.Colegiado == jvpm);
     
     if (!jvpm || !medico) {
         alert("Debe ingresar un JVPM válido y buscar al médico.");
@@ -207,14 +354,21 @@ document.getElementById("siguiente").addEventListener("click", function () {
         `<p><strong>Día:</strong> ${dia}</p>` +
         `<p><strong>Semana:</strong> ${semana}</p>`;
     
+    // Guardar datos para Step 2
+    jvpmActual = jvpm;
+    nombreMedicoActual = medico.NombreLargo;
+    
     document.getElementById("step-1").style.display = "none";
     document.getElementById("step-2").style.display = "block";
+    
+    // Mostrar prescripción en Step 2
+    mostrarPrescripcion(jvpm, medico.NombreLargo, 'step2');
+    
     mostrarMedicamentosPorCategoria();
 });
 
-// Mostrar medicamentos por categoría (3 columnas)
+// Mostrar medicamentos por categoría
 function mostrarMedicamentosPorCategoria() {
-    // Llenar lista Gamma
     const listaGamma = document.getElementById("listaGamma");
     listaGamma.innerHTML = "";
     medicamentosGamma.forEach((med) => {
@@ -225,7 +379,6 @@ function mostrarMedicamentosPorCategoria() {
         listaGamma.appendChild(option);
     });
     
-    // Llenar lista Gineco
     const listaGineco = document.getElementById("listaGineco");
     listaGineco.innerHTML = "";
     medicamentosGineco.forEach((med) => {
@@ -236,7 +389,6 @@ function mostrarMedicamentosPorCategoria() {
         listaGineco.appendChild(option);
     });
     
-    // Llenar lista Dermo
     const listaDermo = document.getElementById("listaDermo");
     listaDermo.innerHTML = "";
     medicamentosDermo.forEach((med) => {
@@ -252,7 +404,6 @@ function mostrarMedicamentosPorCategoria() {
     actualizarContadores();
 }
 
-// Agregar medicamento desde cualquier categoría
 function agregarMedicamento(categoria) {
     let listaOrigen;
     if (categoria === 'gamma') listaOrigen = document.getElementById("listaGamma");
@@ -282,7 +433,6 @@ function agregarMedicamento(categoria) {
     actualizarContadores();
 }
 
-// Regresar medicamento a su categoría original
 function regresarMedicamento() {
     const listaSeleccionados = document.getElementById("listaSeleccionados");
     const seleccionado = listaSeleccionados.options[listaSeleccionados.selectedIndex];
@@ -311,7 +461,6 @@ function regresarMedicamento() {
     actualizarContadores();
 }
 
-// Actualizar lista de seleccionados
 function actualizarSeleccionados() {
     const seleccionadosContainer = document.getElementById("listaSeleccionados");
     seleccionadosContainer.innerHTML = "";
@@ -331,19 +480,22 @@ function actualizarSeleccionados() {
     }
 }
 
-// Actualizar contadores por línea
 function actualizarContadores() {
     const gammaCount = seleccionados.filter(m => m.LINEA === 'Gamma').length;
     const ginecoCount = seleccionados.filter(m => m.LINEA === 'Gineco').length;
     const dermoCount = seleccionados.filter(m => m.LINEA === 'Dermoestético').length;
     
-    document.getElementById("contadorGamma").textContent = gammaCount;
-    document.getElementById("contadorGineco").textContent = ginecoCount;
-    document.getElementById("contadorDermo").textContent = dermoCount;
-    document.getElementById("totalSeleccionados").textContent = seleccionados.length;
+    const contadorGamma = document.getElementById("contadorGamma");
+    const contadorGineco = document.getElementById("contadorGineco");
+    const contadorDermo = document.getElementById("contadorDermo");
+    const totalSeleccionados = document.getElementById("totalSeleccionados");
+    
+    if (contadorGamma) contadorGamma.textContent = gammaCount;
+    if (contadorGineco) contadorGineco.textContent = ginecoCount;
+    if (contadorDermo) contadorDermo.textContent = dermoCount;
+    if (totalSeleccionados) totalSeleccionados.textContent = seleccionados.length;
 }
 
-// Pasar a asignar cantidades
 document.getElementById("siguienteCantidad").addEventListener("click", function () {
     if (seleccionados.length !== 8) {
         alert("Debe seleccionar exactamente 8 medicamentos.");
@@ -385,12 +537,11 @@ document.getElementById("siguienteCantidad").addEventListener("click", function 
     });
 });
 
-// Guardar datos
 document.getElementById("guardar").addEventListener("click", function () {
     const jvpm = document.getElementById("jvpm").value.trim();
     const dia = document.getElementById("dia").value;
     const semana = document.getElementById("semana").value;
-    const medico = medicos.find((m) => m.Colegiado === jvpm);
+    const medico = medicos.find((m) => m.Colegiado == jvpm);
     
     if (!medico) {
         alert("JVPM no válido. No se guardarán los datos.");
@@ -425,11 +576,13 @@ document.getElementById("guardar").addEventListener("click", function () {
     document.getElementById("jvpm").value = "";
     document.getElementById("dia").value = "";
     document.getElementById("semana").value = "";
+    document.getElementById("nombreMedico").innerText = "";
+    jvpmActual = '';
+    nombreMedicoActual = '';
     seleccionados = [];
     mostrarMedicamentosPorCategoria();
 });
 
-// Actualizar tabla
 function actualizarTabla() {
     const tablaResultados = document.getElementById("tablaResultados");
     tablaResultados.innerHTML = 
@@ -461,7 +614,6 @@ function actualizarTabla() {
     document.getElementById("tablaDatos").style.display = "block";
 }
 
-// Exportar a Excel
 document.getElementById("exportar").addEventListener("click", function () {
     if (datosGuardados.length === 0) {
         alert("No hay datos para exportar.");
@@ -485,7 +637,6 @@ document.getElementById("exportar").addEventListener("click", function () {
     XLSX.writeFile(wb, "ParrillaPromocional.xlsx");
 });
 
-// Borrar datos
 document.getElementById("borrarDatos").addEventListener("click", function () {
     if (confirm("¿Está seguro de borrar todos los datos? Esta acción no se puede deshacer.")) {
         const activeUser = localStorage.getItem("activeUser");
@@ -497,3 +648,14 @@ document.getElementById("borrarDatos").addEventListener("click", function () {
         }
     }
 });
+
+// Funciones de navegación
+function regresarPaso1() {
+    document.getElementById("step-2").style.display = "none";
+    document.getElementById("step-1").style.display = "block";
+}
+
+function regresarPaso2() {
+    document.getElementById("step-3").style.display = "none";
+    document.getElementById("step-2").style.display = "block";
+}
